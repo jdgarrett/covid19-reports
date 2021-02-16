@@ -194,7 +194,7 @@ class MusterController {
 type GetIndividualsQuery = {
   interval: TimeInterval
   intervalCount: string
-  unitId: string
+  unitId: number | null
 } & PagedQuery;
 
 type GetTrendsQuery = {

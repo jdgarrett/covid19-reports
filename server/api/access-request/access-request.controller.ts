@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { getManager, Like } from 'typeorm';
+import { getManager } from 'typeorm';
 import { BadRequestError, NotFoundError, UnauthorizedError } from '../../util/error-types';
 import { ApiRequest, OrgParam } from '../index';
 import { Org } from '../org/org.model';
@@ -125,8 +125,8 @@ class AccessRequestController {
       throw new BadRequestError('Missing role for approved access request');
     }
 
-    if (!req.body.unitFilter) {
-      throw new BadRequestError('Missing unit filter for approved access request');
+    if ((req.body.units == null || req.body.units.length === 0) && !req.body.allUnits) {
+      throw new BadRequestError('Missing units for approved access request');
     }
 
     const accessRequest = await AccessRequest.findOne({
@@ -152,17 +152,23 @@ class AccessRequestController {
       throw new NotFoundError('Role was not found');
     }
 
-    const unitIdFilter = req.body.unitFilter.replace('*', '%');
+    // Null means all units are allowed
+    let units: Unit[] = [];
 
-    const unitsCount = await Unit.count({
-      where: {
-        org: req.appOrg!,
-        id: Like(unitIdFilter),
-      },
-    });
+    if (req.body.units != null && !req.body.allUnits) {
+      units = await Unit
+        .createQueryBuilder()
+        .where('org_id = :orgId', { orgId })
+        .andWhere('id IN (:unitIds)', { unitIds: req.body.units })
+        .getMany();
 
-    if (unitsCount === 0) {
-      throw new NotFoundError('No matching units were found');
+      if (units.length === 0) {
+        throw new NotFoundError('No matching units were found');
+      }
+
+      if (units.length < req.body.units.length) {
+        throw new NotFoundError('Some units could not be found.');
+      }
     }
 
     if (!req.appUserRole || !req.appUserRole.role.isSupersetOf(role)) {
@@ -189,7 +195,7 @@ class AccessRequestController {
     let processedRequest: AccessRequest | null = null;
 
     await getManager().transaction(async manager => {
-      await user.addRole(manager, role, req.body.unitFilter);
+      await user.addRole(manager, role, units, req.body.allUnits);
       await manager.save(user);
 
       processedRequest = await manager.remove(accessRequest);
@@ -234,7 +240,8 @@ type AccessRequestBody = {
 
 type ApproveAccessRequestBody = {
   roleId: number,
-  unitFilter: string,
+  units: number[],
+  allUnits: boolean,
 } & AccessRequestBody;
 
 export default new AccessRequestController();

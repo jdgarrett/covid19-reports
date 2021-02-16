@@ -17,7 +17,7 @@ const kibanaProxyConfig: Config = {
   // add custom headers to request
   onProxyReq: (proxyReq: ClientRequest, req: ProxyRequest) => {
     if (req.appUserRole) {
-      proxyReq.setHeader('x-se-indices', req.appUserRole.getKibanaIndex());
+      proxyReq.setHeader('x-se-indices', req.appUserRole.getKibanaIndices().join(','));
     }
   },
 

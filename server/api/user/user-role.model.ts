@@ -1,14 +1,16 @@
 import {
   Entity,
-  Column,
   BaseEntity,
   ManyToOne,
   PrimaryGeneratedColumn,
+  ManyToMany,
+  JoinTable,
+  Column,
 } from 'typeorm';
 import { Org } from '../org/org.model';
 import { Role } from '../role/role.model';
 import { User } from './user.model';
-import { escapeRegExp } from '../../util/util';
+import { Unit } from '../unit/unit.model';
 
 @Entity()
 export class UserRole extends BaseEntity {
@@ -28,29 +30,76 @@ export class UserRole extends BaseEntity {
   })
   role!: Role;
 
-  @Column({
-    default: '',
+  @ManyToMany(() => Unit, {
+    cascade: true,
+    onDelete: 'CASCADE',
   })
-  indexPrefix!: string;
+  @JoinTable({
+    name: 'user_role_unit',
+    joinColumn: {
+      name: 'user_role',
+      referencedColumnName: 'id',
+    },
+    inverseJoinColumn: {
+      name: 'unit',
+      referencedColumnName: 'id',
+    },
+  })
+  units!: Unit[];
 
-  getUnitFilter() {
-    return this.indexPrefix.replace(new RegExp(escapeRegExp('-'), 'g'), '_');
+  @Column({
+    default: false,
+  })
+  allUnits: boolean = false;
+
+  async getUnits() {
+    if (this.allUnits) {
+      return Unit.find({
+        relations: ['org'],
+        where: {
+          org: this.role.org!.id,
+        },
+      });
+    }
+    return this.units;
   }
 
-  getKibanaIndex() {
+  async getUnit(unitId: number) {
+    if (this.allUnits) {
+      return Unit.findOne({
+        relations: ['org'],
+        where: {
+          id: unitId,
+          org: this.role.org!.id,
+        },
+      });
+    }
+    return this.units.find(unit => unit.id === unitId);
+  }
+
+  getKibanaIndices() {
     if (this.user.rootAdmin) {
-      return '*';
+      return ['*'];
     }
     const suffix = this.role.canViewPHI ? 'phi' : (this.role.canViewPII ? 'pii' : 'base');
-    return `${this.role.org!.indexPrefix}-${this.getUnitFilter()}-${suffix}-*`;
+    if (this.allUnits) {
+      return [this.buildIndexPattern('*', suffix)];
+    }
+    return this.units.map(unit => this.buildIndexPattern(`${unit.id}`, suffix));
   }
 
-  getKibanaIndexForMuster(unitId?: string) {
-    return `${this.role.org!.indexPrefix}-${unitId || this.getUnitFilter()}-phi-*`;
+  getKibanaIndicesForMuster(unitId?: number) {
+    if (unitId) {
+      return [this.buildIndexPattern(`${unitId}`, 'phi')];
+    }
+    if (this.allUnits) {
+      return [this.buildIndexPattern('*', 'phi')];
+    }
+    return this.units.map(unit => this.buildIndexPattern(`${unit.id}`, 'phi'));
   }
 
-  getKibanaUserClaim() {
-    return `org${this.role.org!.id}-role${this.role.id}`;
+  buildIndexPattern(unitId: string, suffix: string) {
+    return `${this.role.org!.indexPrefix}-${unitId}-${suffix}-*`;
   }
 
   getKibanaRoles() {
@@ -65,7 +114,7 @@ export class UserRole extends BaseEntity {
     userRole.id = 0;
     userRole.user = user;
     userRole.role = Role.admin(org);
-    userRole.indexPrefix = '*';
+    userRole.allUnits = true;
     return userRole;
   }
 

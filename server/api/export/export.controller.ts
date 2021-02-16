@@ -34,7 +34,7 @@ class ExportController {
     //
     // Get ES data and stream to client.
     //
-    const index = req.appUserRole!.getKibanaIndex();
+    const index = req.appUserRole!.getKibanaIndices();
     const scrollQueue = [] as SearchResponse<any>[];
     try {
       scrollQueue.push(await elasticsearch.search({
@@ -165,7 +165,7 @@ type ExportOrgQuery = {
 type ExportMusterIndividualsQuery = {
   interval: TimeInterval
   intervalCount: string
-  unitId?: string
+  unitId?: number
 } & PagedQuery;
 
 export default new ExportController();

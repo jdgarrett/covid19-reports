@@ -6,7 +6,6 @@ import {
   ManyToOne,
   JoinColumn,
 } from 'typeorm';
-import { Role } from '../role/role.model';
 import { MusterConfiguration } from '../unit/unit.model';
 import { User } from '../user/user.model';
 
@@ -55,6 +54,7 @@ export class Org extends BaseEntity {
     return User.createQueryBuilder('user')
       .leftJoinAndSelect('user.userRoles', 'userRoles')
       .leftJoinAndSelect('userRoles.role', 'role')
+      .leftJoinAndSelect('userRoles.units', 'units')
       .where('role.org_id = :orgId', {
         orgId: this.id,
       })

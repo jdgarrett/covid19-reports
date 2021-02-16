@@ -128,7 +128,7 @@ export const UsersPage = () => {
         patchMoreMenuState({ showChangeUserRole: false });
         setSelectRoleDialogProps(undefined);
       },
-      onChange: async (role: ApiRole, unitFilter: string) => {
+      onChange: async (role: ApiRole, unitIds: number[] | null) => {
         try {
           patchMoreMenuState({ loading: true });
           await client.post(`user/${orgId}`, {
@@ -136,7 +136,8 @@ export const UsersPage = () => {
             lastName: userMoreMenu!.user.lastName,
             edipi: userMoreMenu!.user.edipi,
             role: role.id,
-            unitFilter,
+            units: unitIds == null ? [] : unitIds,
+            allUnits: unitIds == null,
           });
         } catch (error) {
           showAlertDialog(error, 'Change User Role', 'Unable to change role');
@@ -167,13 +168,14 @@ export const UsersPage = () => {
         setAccessRequestState(request, undefined);
         setSelectRoleDialogProps(undefined);
       },
-      onChange: async (role: ApiRole, unitFilter: string) => {
+      onChange: async (role: ApiRole, unitIds: number[] | null) => {
         try {
           setAccessRequestState(request, AccessRequestState.ApprovePending);
           await client.post(`access-request/${orgId}/approve`, {
             requestId: request.id,
             roleId: role.id,
-            unitFilter,
+            units: unitIds == null ? [] : unitIds,
+            allUnits: unitIds == null,
           });
         } catch (error) {
           showAlertDialog(error, 'Approve Access Request', 'Error while approving accessing request');
@@ -191,11 +193,14 @@ export const UsersPage = () => {
   }
 
   function getUserUnit(user: ApiUser) {
-    const unitFilter = user.userRoles![0].indexPrefix;
-    if (unitFilter && unitFilter === '*') {
+    if (user.userRoles![0].allUnits) {
       return 'All Units';
     }
-    return units.find(unit => unit.id === unitFilter)?.name || unitFilter;
+    const userUnits = user.userRoles![0].units;
+    if (userUnits.length === 0) {
+      return 'None';
+    }
+    return userUnits.map(unit => unit.name).join(', ');
   }
 
   async function denyRequest(request: AccessRequestRow) {

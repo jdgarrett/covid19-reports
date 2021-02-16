@@ -73,7 +73,6 @@ async function generateOrg(manager: EntityManager, orgNum: number, admin: User, 
     let unit = manager.create(Unit, {
       org,
       name: `Unit ${i} : Group ${orgNum}`,
-      id: `unit${i}`,
       musterConfiguration: [],
     });
     unit = await manager.save(unit);
@@ -82,7 +81,7 @@ async function generateOrg(manager: EntityManager, orgNum: number, admin: User, 
 
   let groupAdminRole = createGroupAdminRole(manager, org);
   groupAdminRole = await manager.save(groupAdminRole);
-  await admin.addRole(manager, groupAdminRole, '*');
+  await admin.addRole(manager, groupAdminRole, [], true);
   await manager.save(admin);
 
   let groupUserRole = createGroupUserRole(manager, org);
@@ -100,7 +99,7 @@ async function generateOrg(manager: EntityManager, orgNum: number, admin: User, 
       isRegistered: true,
     });
     user = await manager.save(user);
-    await user.addRole(manager, groupUserRole, 'unit1');
+    await user.addRole(manager, groupUserRole, [units[i % 5]], false);
   }
 
   for (let i = 0; i < numRosterEntries; i++) {
@@ -110,7 +109,7 @@ async function generateOrg(manager: EntityManager, orgNum: number, admin: User, 
       edipi: `${orgNum}${`${i}`.padStart(9, '0')}`,
       firstName: 'Roster',
       lastName: `Entry${i}`,
-      unit: (i % 2 === 0) ? units[0] : units[randomNumber(1, 4)], // Ensure at least some roster entries are in unit 1.
+      unit: units[i % 5],
       customColumns,
     });
     await manager.save(rosterEntry);

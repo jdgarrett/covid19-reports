@@ -51,9 +51,15 @@ export class Roster extends RosterEntity {
     });
 
     // Filter out roster entries that are not on the active roster or are not allowed by the role's index prefix.
-    return queryBuilder
-      .where('u.org_id = :orgId', { orgId: org.id })
-      .andWhere('u.id like :name', { name: userRole.indexPrefix.replace('*', '%') });
+    queryBuilder
+      .where('u.org_id = :orgId', { orgId: org.id });
+
+    if (!userRole.allUnits) {
+      queryBuilder
+        .andWhere(`u.id IN (${(await userRole.getUnits()).map(unit => unit.id).join(',')})`);
+    }
+
+    return queryBuilder;
   }
 
   static async getAllowedColumns(org: Org, role: Role) {

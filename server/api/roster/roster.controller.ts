@@ -3,7 +3,6 @@ import csv from 'csvtojson';
 import fs from 'fs';
 import {
   getConnection,
-  getManager,
   In,
   OrderByCondition,
   QueryBuilder,
@@ -170,12 +169,11 @@ class RosterController {
       fs.unlinkSync(req.file.path);
     }
 
-    const orgUnits = await Unit.find({
-      relations: ['org'],
-      where: {
-        org: org.id,
-      },
-    });
+    const orgUnits = await req.appUserRole?.getUnits();
+
+    if (!orgUnits) {
+      throw new BadRequestError('No units found.');
+    }
 
     const columns = await Roster.getAllowedColumns(org, req.appUserRole!.role);
     const errors: RosterUploadErrorInfo[] = [];
@@ -196,7 +194,7 @@ class RosterController {
     };
 
     roster.forEach((row, index) => {
-      const units = orgUnits.filter(u => row.unit === u.id || row.unit === u.name);
+      const units = orgUnits.filter(u => row.unit === u.name);
       const unit = units.length > 0 ? units[0] : undefined;
       // Pre-validate / check for row-level issues.
       try {
@@ -205,9 +203,6 @@ class RosterController {
         }
         if (units.length === 0) {
           throw new NotFoundError(`Unit "${row.unit}" could not be found in the group.`);
-        }
-        if (units.length > 1) {
-          throw new BadRequestError(`Unit "${row.unit}" is ambiguous. Use the Unit ID to disambiguate: ${units.map(u => u.id).join(', ')}.`);
         }
         if (existingEntries.some(({ edipi }) => edipi === row.edipi)) {
           throw new BadRequestError(`Entry with EDIPI already exists.`);
@@ -249,13 +244,12 @@ class RosterController {
   }
 
   async deleteRosterEntries(req: ApiRequest, res: Response) {
-    const unitIdFilter = req.appUserRole!.getUnitFilter().replace('*', '%');
-    await getManager().createQueryBuilder(Roster, 'roster')
-      .delete()
-      .where('unit_org = :orgId', { orgId: req.appOrg!.id })
-      .andWhere('unit_id LIKE :unitIdFilter', { unitIdFilter })
-      .execute();
-
+    const units = await req.appUserRole!.getUnits();
+    for (const unit of units) {
+      await Roster.delete({
+        unit,
+      });
+    }
     res.status(200).send();
   }
 
@@ -281,9 +275,8 @@ class RosterController {
       .where('roster.edipi = :edipi', { edipi: req.params.edipi })
       .andWhere('roster.timestamp <= to_timestamp(:timestamp)', { timestamp })
       .select()
-      .distinctOn(['roster.unit_id', 'roster.unit_org'])
+      .distinctOn(['roster.unit_id'])
       .orderBy('roster.unit_id')
-      .addOrderBy('roster.unit_org')
       .addOrderBy('roster.timestamp', 'DESC')
       .getMany();
 
@@ -317,13 +310,7 @@ class RosterController {
       throw new BadRequestError('A unit must be supplied when adding a roster entry.');
     }
 
-    const unit = await Unit.findOne({
-      relations: ['org'],
-      where: {
-        org: req.appOrg?.id,
-        id: req.body.unit,
-      },
-    });
+    const unit = await req.appUserRole?.getUnit(req.body.unit);
     if (!unit) {
       throw new NotFoundError(`Unit with ID ${req.body.unit} could not be found.`);
     }
@@ -401,13 +388,7 @@ class RosterController {
 
       if (req.body.unit && req.body.unit !== entry.unit!.id) {
         // If the unit changed, delete the individual from the old unit's roster.
-        const unit = await Unit.findOne({
-          relations: ['org'],
-          where: {
-            org: req.appOrg!.id,
-            id: req.body.unit,
-          },
-        });
+        const unit = await req.appUserRole?.getUnit(req.body.unit);
         if (!unit) {
           throw new NotFoundError(`Unit with ID ${req.body.unit} could not be found.`);
         }
@@ -723,6 +704,7 @@ type RosterFileRow = {
 };
 
 export type RosterEntryData = {
+  unit?: number,
   [key: string]: CustomColumnValue | undefined
 };
 

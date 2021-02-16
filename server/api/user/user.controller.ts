@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { getManager, Like } from 'typeorm';
+import { getManager } from 'typeorm';
 import { AccessRequest } from '../access-request/access-request.model';
 import { ApiRequest, OrgEdipiParams, OrgParam } from '../index';
 import { User } from './user.model';
@@ -63,7 +63,8 @@ class UserController {
     const edipi = req.body.edipi;
     const firstName = req.body.firstName;
     const lastName = req.body.lastName;
-    const unitFilter = req.body.unitFilter;
+    const unitIds = req.body.units;
+    const allUnits = req.body.allUnits;
 
     if (roleId == null) {
       throw new BadRequestError('A role id must be supplied when adding a user.');
@@ -73,8 +74,8 @@ class UserController {
       throw new BadRequestError('An EDIPI must be supplied when adding a user.');
     }
 
-    if (unitFilter == null) {
-      throw new BadRequestError('A unit filter must be supplied when adding a user.');
+    if ((unitIds == null || unitIds.length === 0) && !allUnits) {
+      throw new BadRequestError('Unit IDs must be supplied when adding a user.');
     }
 
     const role = await Role.findOne({
@@ -88,18 +89,25 @@ class UserController {
       throw new NotFoundError('The role was not found in the organization.');
     }
 
-    const unitIdFilter = unitFilter.replace('*', '%');
+    // Null means all units are allowed
+    let units: Unit[] = [];
 
-    const unitsCount = await Unit.count({
-      where: {
-        org: req.appOrg!,
-        id: Like(unitIdFilter),
-      },
-    });
+    if (unitIds && !allUnits) {
+      units = await Unit
+        .createQueryBuilder()
+        .where('org_id = :orgId', { orgId: org.id })
+        .andWhere('id IN (:unitIds)', { unitIds })
+        .getMany();
 
-    if (unitsCount === 0) {
-      throw new NotFoundError('No matching units were found');
+      if (units.length === 0) {
+        throw new NotFoundError('No matching units were found');
+      }
+
+      if (units.length < unitIds.length) {
+        throw new NotFoundError('Some units could not be found.');
+      }
     }
+
 
     if (edipi === req.appUser.edipi && req.appUserRole?.role.id !== roleId) {
       throw new BadRequestError('You may not edit your own role.');
@@ -131,9 +139,9 @@ class UserController {
       }
 
       if (newUser) {
-        await user.addRole(manager, role, unitFilter);
+        await user.addRole(manager, role, units, allUnits);
       } else {
-        await user.changeRole(manager, org.id, role, unitFilter);
+        await user.changeRole(manager, org.id, role, units, allUnits);
       }
       savedUser = await manager.save(user);
     });
@@ -194,7 +202,8 @@ type UpsertUserBody = {
   role: string
   firstName: string
   lastName: string
-  unitFilter: string
+  units: number[]
+  allUnits: boolean
 };
 
 type RegisterUserBody = {

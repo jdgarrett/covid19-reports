@@ -113,7 +113,7 @@ export const MusterPage = () => {
   };
 
   const [individualsTimeRangeString, setIndividualsTimeRangeString] = useState(timeRangeToString({ interval: 'day', intervalCount: 1 }));
-  const [individualsUnitId, setIndividualsUnitId] = useState('');
+  const [individualsUnitId, setIndividualsUnitId] = useState<number | null>(null);
   const [individualsPage, setIndividualsPage] = useState(0);
   const [individualsRowsPerPage, setIndividualsRowsPerPage] = useState(10);
   const [exportLoading, setExportLoading] = useState(false);
@@ -217,38 +217,37 @@ export const MusterPage = () => {
 
   const getTrendData = useCallback((unitStatsByDate: ApiUnitStatsByDate, topUnitCount: number) => {
     // Sum up each unit's non-muster percent to figure out who's performing worst overall.
-    const nonMusterPercentSumByUnit = {} as {[unitId: string]: number};
+    const nonMusterPercentSumByUnit = {} as {[unitName: string]: number};
     for (const date of Object.keys(unitStatsByDate)) {
-      for (const unitId of Object.keys(unitStatsByDate[date])) {
-        if (nonMusterPercentSumByUnit[unitId] == null) {
-          nonMusterPercentSumByUnit[unitId] = 0;
+      for (const unitName of Object.keys(unitStatsByDate[date])) {
+        if (nonMusterPercentSumByUnit[unitName] == null) {
+          nonMusterPercentSumByUnit[unitName] = 0;
         }
-        nonMusterPercentSumByUnit[unitId] += unitStatsByDate[date][unitId].nonMusterPercent;
+        nonMusterPercentSumByUnit[unitName] += unitStatsByDate[date][unitName].nonMusterPercent;
       }
     }
 
     // Exclude compliant units and sort with worst performing units first.
     const unitsSorted = Object.keys(nonMusterPercentSumByUnit)
-      .filter(unitId => nonMusterPercentSumByUnit[unitId] > 0)
-      .sort(unitId => nonMusterPercentSumByUnit[unitId])
+      .filter(unitName => nonMusterPercentSumByUnit[unitName] > 0)
+      .sort(unitName => nonMusterPercentSumByUnit[unitName])
       .reverse()
       .slice(0, topUnitCount);
 
     // Build chart data.
     const datesSorted = Object.keys(unitStatsByDate).sort();
     const trendChartData = [] as Plotly.Data[];
-    for (const unitId of unitsSorted) {
-      const name = units.find(unit => unit.id === unitId)?.name;
+    for (const unitName of unitsSorted) {
       const chartData = {
         type: 'bar',
         x: datesSorted,
         y: [] as number[],
-        name: name || unitId,
+        name: unitName,
         hovertemplate: `%{y:.1f}%`,
       };
 
       for (const date of datesSorted) {
-        const nonMusterPercent = unitStatsByDate[date][unitId].nonMusterPercent;
+        const nonMusterPercent = unitStatsByDate[date][unitName].nonMusterPercent;
         chartData.y.push(nonMusterPercent);
       }
 
@@ -256,7 +255,7 @@ export const MusterPage = () => {
     }
 
     return trendChartData;
-  }, [units]);
+  }, []);
 
   useEffect(() => {
     initialize().then();
@@ -307,8 +306,8 @@ export const MusterPage = () => {
 
       const startDate = moment().startOf('day').subtract(intervalCount, 'days').format('YYYY-MM-DD');
       const endDate = moment().startOf('day').format('YYYY-MM-DD');
-      const unitId = individualsUnitId || 'all-units';
-      const filename = `${_.kebabCase(orgName)}_${_.kebabCase(unitId)}_muster-noncompliance_${startDate}_to_${endDate}`;
+      const unitId = individualsUnitId !== null ? `${individualsUnitId}` : 'all-units';
+      const filename = `${_.kebabCase(orgName)}_${unitId}_muster-noncompliance_${startDate}_to_${endDate}`;
       downloadFile(response.data, filename, 'csv');
     } catch (error) {
       dispatch(Modal.alert('Export to CSV', formatMessage(error, 'Unable to export')));
@@ -360,7 +359,8 @@ export const MusterPage = () => {
   };
 
   const handleIndividualsUnitChange = (event: ChangeEvent<{ name?: string, value: unknown }>) => {
-    setIndividualsUnitId(event.target.value as string);
+    const unitId = event.target.value as number;
+    setIndividualsUnitId(unitId >= 0 ? unitId : null);
   };
 
   const timeRangeToggleButton = (timeRange: TimeRange) => {
@@ -413,7 +413,7 @@ export const MusterPage = () => {
                       displayEmpty
                       onChange={handleIndividualsUnitChange}
                     >
-                      <MenuItem value="">
+                      <MenuItem value={-1}>
                         <em>All Units</em>
                       </MenuItem>
 

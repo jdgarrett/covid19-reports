@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
 import {
-  Button,
+  Button, Checkbox,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
-  FormControl, Grid,
+  FormControl, Grid, ListItemText, MenuItem,
   Select,
   Typography,
 } from '@material-ui/core';
 import { useDispatch, useSelector } from 'react-redux';
+import _ from 'lodash';
 import { ButtonWithSpinner } from '../../buttons/button-with-spinner';
 import {
   ApiRole, ApiUnit, ApiUser,
@@ -27,7 +28,7 @@ export type SelectRoleDialogProps = {
   loading: boolean
   units: ApiUnit[]
   onCancel?: () => void
-  onChange: (selectedRole: ApiRole, unitFilter: string) => void
+  onChange: (selectedRole: ApiRole, units: number[] | null) => void
   open?: boolean
   user: ApiUser
 };
@@ -37,18 +38,24 @@ const SelectRoleDialog: React.FunctionComponent<SelectRoleDialogProps> = (props:
   const dispatch = useDispatch();
   const orgId = useSelector(UserSelector.orgId);
   const availableRoles = useSelector(RoleSelector.all);
-  const [selectedUnit, setSelectedUnit] = useState('*');
+  const [selectedUnits, setSelectedUnits] = useState<number[]>([]);
   const [selectedRoleIndex, setSelectedRoleIndex] = useState(-1);
   const {
     confirmButtonText, loading, onCancel, onChange, open, user,
   } = props;
+
+  const unitIndexMap: { [key: number]: number } = {};
+
+  for (let i = 0; i < props.units.length; i++) {
+    unitIndexMap[props.units[i].id] = i;
+  }
 
   useEffect(() => {
     if (availableRoles!.length > 0) {
       const userRole = user?.userRoles?.[0];
       const roleIndex = userRole ? availableRoles.findIndex(role => role.id === userRole.role.id) : 0;
       setSelectedRoleIndex(roleIndex >= 0 ? roleIndex : 0);
-      setSelectedUnit(userRole?.indexPrefix || '*');
+      setSelectedUnits(userRole?.units?.map(unit => unit.id) ?? [-1]);
     }
   }, [user, availableRoles]);
 
@@ -62,9 +69,25 @@ const SelectRoleDialog: React.FunctionComponent<SelectRoleDialogProps> = (props:
 
   useEffect(() => { initializeTable().then(); }, [initializeTable]);
 
-  function selectedUnitChanged(event: React.ChangeEvent<{ value: unknown }>) {
-    setSelectedUnit(event.target.value as string);
-  }
+  const selectedUnitChanged = (event: React.ChangeEvent<{ value: unknown }>) => {
+    const selectedValues = event.target.value as number[];
+    if (selectedValues.some(value => value === -1)) {
+      setSelectedUnits([-1]);
+    } else {
+      setSelectedUnits(selectedValues);
+    }
+  };
+
+  const allSelected = () => {
+    return selectedUnits.length === 1 && selectedUnits[0] === -1;
+  };
+
+  const renderUnitValue = (selected: unknown) => {
+    if (allSelected()) {
+      return 'All Units';
+    }
+    return (selected as number[]).map(unitId => props.units[unitIndexMap[unitId]].name).join(', ');
+  };
 
   function selectedRoleChanged(event: React.ChangeEvent<{ value: unknown }>) {
     setSelectedRoleIndex(event.target.value as number);
@@ -76,10 +99,13 @@ const SelectRoleDialog: React.FunctionComponent<SelectRoleDialogProps> = (props:
 
   function canSave() {
     const originalRole = user?.userRoles?.[0];
+    if (selectedUnits != null && selectedUnits.length === 0) {
+      return false;
+    }
     if (!originalRole) {
       return true;
     }
-    return originalRole.indexPrefix !== selectedUnit || originalRole.role.id !== availableRoles[selectedRoleIndex].id;
+    return !_.isEqual(originalRole.units, selectedUnits) || originalRole.role.id !== availableRoles[selectedRoleIndex].id;
   }
 
   const selectedRole = availableRoles[selectedRoleIndex];
@@ -95,8 +121,8 @@ const SelectRoleDialog: React.FunctionComponent<SelectRoleDialogProps> = (props:
             <FormControl className={classes.roleSelect}>
               <Typography className={classes.roleHeader}>Role:</Typography>
               <Select
-                native
                 disabled={loading}
+                native
                 autoFocus
                 value={selectedRoleIndex}
                 onChange={selectedRoleChanged}
@@ -106,9 +132,9 @@ const SelectRoleDialog: React.FunctionComponent<SelectRoleDialogProps> = (props:
                 }}
               >
                 {availableRoles.map((role, index) => (
-                  <option key={role.id} value={index}>
-                    {role.name}
-                  </option>
+                  <MenuItem key={role.id} value={index}>
+                    <ListItemText primary={role.name} />
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -117,21 +143,27 @@ const SelectRoleDialog: React.FunctionComponent<SelectRoleDialogProps> = (props:
             <FormControl className={classes.roleSelect}>
               <Typography className={classes.roleHeader}>Unit:</Typography>
               <Select
-                native
+                multiple
                 disabled={loading}
                 autoFocus
-                value={selectedUnit}
+                value={selectedUnits}
+                placeholder="None"
                 onChange={selectedUnitChanged}
+                renderValue={renderUnitValue}
                 inputProps={{
                   name: 'unit',
                   id: 'unit-select',
                 }}
               >
-                <option key="all" value="*">All Units</option>
+                <MenuItem key="all" value={-1}>
+                  <Checkbox checked={allSelected()} />
+                  <ListItemText primary="All Units" />
+                </MenuItem>
                 {props.units.map(unit => (
-                  <option key={unit.id} value={unit.id}>
-                    {unit.name}
-                  </option>
+                  <MenuItem key={unit.id} value={unit.id} disabled={allSelected()}>
+                    <Checkbox checked={allSelected() || selectedUnits.indexOf(unit.id) > -1} />
+                    <ListItemText primary={unit.name} />
+                  </MenuItem>
                 ))}
               </Select>
             </FormControl>
@@ -144,7 +176,7 @@ const SelectRoleDialog: React.FunctionComponent<SelectRoleDialogProps> = (props:
           Cancel
         </Button>
         <ButtonWithSpinner
-          onClick={() => onChange(selectedRole, selectedUnit)}
+          onClick={() => onChange(selectedRole, allSelected() ? null : selectedUnits)}
           disabled={!canSave()}
           color="primary"
           loading={loading}

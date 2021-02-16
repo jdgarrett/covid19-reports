@@ -4,6 +4,7 @@ import {
 import { NotFoundError } from '../../util/error-types';
 import { Role } from '../role/role.model';
 import { UserRole } from './user-role.model';
+import { Unit } from '../unit/unit.model';
 
 @Entity()
 export class User extends BaseEntity {
@@ -56,13 +57,14 @@ export class User extends BaseEntity {
     }
   }
 
-  async addRole(manager: EntityManager, role: Role, indexPrefix: string): Promise<User> {
+  async addRole(manager: EntityManager, role: Role, units: Unit[], allUnits: boolean): Promise<User> {
     let userRole = await this.findUserRole(role);
     if (!userRole) {
       userRole = manager.create<UserRole>('UserRole', {
         user: this,
         role,
-        indexPrefix,
+        units,
+        allUnits,
       });
       this.userRoles.push(userRole);
       if (this.edipi !== User.internalUserEdipi) {
@@ -86,7 +88,7 @@ export class User extends BaseEntity {
     return this;
   }
 
-  async changeRole(manager: EntityManager, orgId: number, role: Role, indexPrefix: string): Promise<User> {
+  async changeRole(manager: EntityManager, orgId: number, role: Role, units: Unit[], allUnits: boolean): Promise<User> {
     if (!this.userRoles) {
       await this.refreshUserRoles();
     }
@@ -94,11 +96,10 @@ export class User extends BaseEntity {
     if (!orgRole) {
       throw new NotFoundError('The user does not have a role in the given group.');
     }
-    if (orgRole.role.id !== role.id || orgRole.indexPrefix !== indexPrefix) {
-      orgRole.role = role;
-      orgRole.indexPrefix = indexPrefix;
-      await manager.save(orgRole);
-    }
+    orgRole.role = role;
+    orgRole.units = units;
+    orgRole.allUnits = allUnits;
+    await manager.save(orgRole);
     return this;
   }
 

@@ -33,9 +33,10 @@ export interface ApiRole {
 
 export interface ApiUserRole {
   id: number,
-  indexPrefix: string,
   role: ApiRole,
   user: ApiUser,
+  units: ApiUnit[],
+  allUnits: boolean,
 }
 
 export interface ApiUser {
@@ -139,7 +140,7 @@ export interface ApiRosterColumnInfo extends ColumnInfo {
 
 export interface ApiRosterEntry {
   id: number,
-  unit: string,
+  unit: number,
   [key: string]: string | boolean | number | null,
 }
 
@@ -188,7 +189,7 @@ export interface MusterConfiguration {
 }
 
 export interface ApiUnit {
-  id: string,
+  id: number,
   name: string,
   org?: ApiOrg,
   musterConfiguration?: MusterConfiguration[],

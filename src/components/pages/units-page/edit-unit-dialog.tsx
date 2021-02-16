@@ -101,12 +101,11 @@ export const EditUnitDialog = (props: EditUnitDialogProps) => {
   }, [defaultMusterConfiguration]);
 
   const existingUnit: boolean = !!unit;
-  const [id, setId] = useState(unit?.id || '');
   const [name, setName] = useState(unit?.name || '');
   const [errorMessage, setErrorMessage] = React.useState<null | string>(null);
   const [musterConfigMode, setMusterConfigMode] = useState(getModeFromData(unit?.musterConfiguration));
   const [musterConfiguration, setMusterConfiguration] = useState<MusterConfigurationRow[]>(
-    musterRows(getDataFromMode(musterConfigMode, unit?.musterConfiguration, defaultMusterConfiguration)!)
+    musterRows(getDataFromMode(musterConfigMode, unit?.musterConfiguration, defaultMusterConfiguration)!),
   );
 
   useEffect(() => {
@@ -122,10 +121,6 @@ export const EditUnitDialog = (props: EditUnitDialogProps) => {
   const showNoneMessage = (musterConfigMode === MusterConfigMode.Custom && !musterConfiguration.length)
     || musterConfigMode === MusterConfigMode.None
     || (musterConfigMode === MusterConfigMode.Default && defaultMusterConfiguration.length === 0);
-
-  const onUnitChanged = (event: React.ChangeEvent<HTMLInputElement>) => {
-    setId(event.target.value.replace(/[^a-z0-9_]/gi, '').toLowerCase());
-  };
 
   const onInputChanged = (func: (f: string) => any) => (event: React.ChangeEvent<HTMLInputElement>) => {
     func(event.target.value);
@@ -278,17 +273,17 @@ export const EditUnitDialog = (props: EditUnitDialogProps) => {
     }
     setFormDisabled(true);
     const body = {
-      id,
+      id: unit?.id,
       name,
       musterConfiguration: musterConfigMode === MusterConfigMode.None
         ? []
         : musterConfigMode === MusterConfigMode.Default
           ? null
           : musterConfiguration.map(muster => ({
-              days: muster.days,
-              startTime: muster.startTime,
-              timezone: muster.timezone,
-              durationMinutes: muster.durationMinutes,
+            days: muster.days,
+            startTime: muster.startTime,
+            timezone: muster.timezone,
+            durationMinutes: muster.durationMinutes,
           })),
     };
     try {
@@ -310,7 +305,7 @@ export const EditUnitDialog = (props: EditUnitDialogProps) => {
   };
 
   const canSave = () => {
-    return !formDisabled && id.length > 0 && name.length > 0;
+    return !formDisabled && name.length > 0;
   };
 
   const dayButtonClass = (muster: MusterConfigurationRow, day: DaysOfTheWeek) => {
@@ -330,17 +325,6 @@ export const EditUnitDialog = (props: EditUnitDialogProps) => {
       <DialogTitle id="alert-dialog-title">{existingUnit ? 'Edit Unit' : 'New Unit'}</DialogTitle>
       <DialogContent>
         <Grid container spacing={3}>
-          <Grid item xs={6}>
-            <Typography className={classes.headerLabel}>ID</Typography>
-            <TextField
-              className={classes.textField}
-              id="unit-id"
-              disabled={formDisabled || existingUnit}
-              value={id}
-              onChange={onUnitChanged}
-              helperText="Lowercase letters, numbers, and underscores are allowed"
-            />
-          </Grid>
           <Grid item xs={6}>
             <Typography className={classes.headerLabel}>Name</Typography>
             <TextField

@@ -40,4 +40,5 @@ export const ormConfig: PostgresConnectionOptions = {
   namingStrategy: new SnakeNamingStrategy(),
   synchronize: (env.isDev && process.env.SYNC_DATABASE === 'true'),
   logging: false,
+  cache: true,
 };

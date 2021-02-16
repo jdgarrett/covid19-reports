@@ -3,7 +3,6 @@ import {
   SearchResponse,
 } from 'elasticsearch';
 import moment from 'moment-timezone';
-import { Like } from 'typeorm';
 import { Org } from '../api/org/org.model';
 import { UserRole } from '../api/user/user-role.model';
 import { Roster } from '../api/roster/roster.model';
@@ -30,7 +29,7 @@ export async function getRosterMusterStats(args: {
   userRole: UserRole
   interval: TimeInterval
   intervalCount: number
-  unitId?: string
+  unitId?: number
 }) {
   const { org, userRole, interval, intervalCount, unitId } = args;
 
@@ -38,7 +37,7 @@ export async function getRosterMusterStats(args: {
   let response: SearchResponse<never>;
   try {
     response = await elasticsearch.search({
-      index: userRole.getKibanaIndexForMuster(unitId),
+      index: userRole.getKibanaIndicesForMuster(unitId),
       body: buildIndividualsMusterBody({
         interval,
         intervalCount,
@@ -52,20 +51,17 @@ export async function getRosterMusterStats(args: {
   // Get allowed roster data for the individuals returned from ES.
   let rosterEntries: Roster[];
   if (unitId) {
-    rosterEntries = await Roster.find({
-      relations: ['unit', 'unit.org'],
-      where: (qb: any) => {
-        qb.where('unit_id = :unitId', { unitId })
-          .andWhere('unit_org = :orgId', { orgId: org.id });
-      },
-    });
+    rosterEntries = await Roster.createQueryBuilder('roster')
+      .leftJoinAndSelect('roster.unit', 'unit')
+      .leftJoinAndSelect('unit.org', 'org')
+      .where('unit.id = :unitId', { unitId })
+      .getMany();
   } else {
-    rosterEntries = await Roster.find({
-      relations: ['unit', 'unit.org'],
-      where: (qb: any) => {
-        qb.where('unit_org = :orgId', { orgId: org.id });
-      },
-    });
+    rosterEntries = await Roster.createQueryBuilder('roster')
+      .leftJoinAndSelect('roster.unit', 'unit')
+      .leftJoinAndSelect('unit.org', 'org')
+      .where('org.id = :orgId', { orgId: org.id })
+      .getMany();
   }
 
   const rosterEntriesByEdipi: { [edipi: string]: Roster } = {};
@@ -158,21 +154,12 @@ export async function getUnitMusterStats(args: {
 }) {
   const { userRole, weeksCount, monthsCount } = args;
 
-  // Get unit names.
-  const unitIdFilter = userRole.getUnitFilter().replace('*', '%');
-  const units = await Unit.find({
-    where: {
-      org: userRole.role.org,
-      id: Like(unitIdFilter),
-    },
-  });
-
-  const unitNames = units.map(u => u.name);
+  const unitNames = (await userRole.getUnits()).map(u => u.name);
 
   //
   // Build elastcisearch multisearch queries.
   //
-  const index = userRole.getKibanaIndexForMuster();
+  const index = userRole.getKibanaIndicesForMuster();
   const esBody = [
     { index },
     buildMusterEsBody({
@@ -528,7 +515,7 @@ type IndividualStats = {
     mustersReported: number
     mustersNotReported: number
     nonMusterPercent: number
-    unitId?: string
+    unitId?: number
   }
 };
 
@@ -557,7 +544,7 @@ type MusterAggregation = {
 
 export interface MusterWindow {
   id: string,
-  unitId: string,
+  unitId: number,
   unitName: string,
   reportingGroup?: string,
   orgId: number,

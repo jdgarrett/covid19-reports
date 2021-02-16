@@ -4,21 +4,19 @@ import {
   BaseEntity,
   JoinColumn,
   ManyToOne,
-  PrimaryColumn,
   Index,
+  PrimaryGeneratedColumn,
 } from 'typeorm';
 import { Org } from '../org/org.model';
 
 @Entity()
 @Index(['org', 'name'], { unique: true })
 export class Unit extends BaseEntity {
-
-  @PrimaryColumn()
-  id!: string;
+  @PrimaryGeneratedColumn()
+  id!: number;
 
   @ManyToOne(() => Org, org => org.id, {
     nullable: false,
-    primary: true,
     onDelete: 'CASCADE',
   })
   @JoinColumn({

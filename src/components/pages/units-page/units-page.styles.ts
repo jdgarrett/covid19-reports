@@ -31,10 +31,10 @@ export default makeStyles((theme: Theme) => createStyles({
     },
   },
   musterConfiguration: {
-    width: '50%',
+    width: '75%',
   },
   noMusterConfiguration: {
-    width: '50%',
+    width: '75%',
     color: '#A9AEB1',
   },
   iconCell: {

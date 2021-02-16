@@ -30,7 +30,7 @@ export class KibanaApi {
       baseURL: `${config.kibana.uri}`,
       headers: {
         'kbn-xsrf': 'true', // Kibana requires 'kbn-xsrf' to be set or it will return an error. It can be any string.
-        'x-se-indices': req.appUserRole.getKibanaIndex(),
+        'x-se-indices': req.appUserRole.getKibanaIndices().join(','),
       },
       maxRedirects: 0,
       httpsAgent: new https.Agent({

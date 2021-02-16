@@ -50,10 +50,16 @@ export async function requireUserAuth(req: AuthRequest, res: Response, next: Nex
         'userRoles.role.org',
         'userRoles.role.workspace',
         'userRoles.role.org.contact',
+        'userRoles.units',
+        'userRoles.units.org',
         'userRoles.user',
       ],
       where: {
         edipi: id,
+      },
+      cache: {
+        id: 'user_auth',
+        milliseconds: 30000,
       },
     });
   }

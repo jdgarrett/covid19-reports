@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { Log } from '../../util/log';
+import _ from 'lodash';
 import {
   ApiRequest, OrgParam, OrgUnitParams,
 } from '../index';
@@ -8,54 +9,33 @@ import {
   BadRequestError, InternalServerError, NotFoundError,
 } from '../../util/error-types';
 import { Roster } from '../roster/roster.model';
-import { matchWildcardString, sanitizeIndexPrefix } from '../../util/util';
 import elasticsearch from '../../elasticsearch/elasticsearch';
 import { ChangeType, RosterHistory } from '../roster/roster-history.model';
 
 class UnitController {
 
   async getUnits(req: ApiRequest<OrgParam>, res: Response) {
-    if (!req.appUserRole?.indexPrefix) {
+    if (!req.appUserRole) {
       res.json([]);
       return;
     }
-    const units = await Unit
-      .createQueryBuilder('unit')
-      .leftJoinAndSelect('unit.org', 'org')
-      .where('unit.org_id=:orgId', { orgId: req.appOrg!.id })
-      .andWhere('unit.id like :unitFilter', {
-        unitFilter: req.appUserRole!.indexPrefix.replace('*', '%'),
-      })
-      .orderBy('unit.id', 'ASC')
-      .getMany();
-
-    res.json(units);
+    res.json(_.sortBy(await req.appUserRole.getUnits(), ['id']));
   }
 
   async addUnit(req: ApiRequest<OrgParam, UnitData>, res: Response) {
-    if (!req.body.id) {
-      throw new BadRequestError('An ID must be supplied when adding a unit.');
-    }
-    if (!matchWildcardString(req.body.id, req.appUserRole!.indexPrefix)) {
-      throw new BadRequestError('The provided unit ID does not conform to the unit filter for your role.');
-    }
     if (!req.body.name) {
       throw new BadRequestError('A name must be supplied when adding a unit.');
     }
 
-    if (req.body.id !== sanitizeIndexPrefix(req.body.id)) {
-      throw new BadRequestError('Only lowercase letters, numbers, and underscores are allowed in the unit ID.');
-    }
-
     const existingUnit = await Unit.findOne({
       where: {
-        id: req.body.id,
+        name: req.body.name,
         org: req.appOrg!.id,
       },
     });
 
     if (existingUnit) {
-      throw new BadRequestError('There is already a unit with that ID.');
+      throw new BadRequestError('There is already a unit with that name.');
     }
 
     const unit = new Unit();
@@ -67,24 +47,9 @@ class UnitController {
   }
 
   async updateUnit(req: ApiRequest<OrgUnitParams, UnitData>, res: Response) {
-    if (!matchWildcardString(req.params.unitId, req.appUserRole!.indexPrefix)) {
-      // If they don't have permission to see the unit, treat it as not found
-      throw new NotFoundError('The unit could not be found.');
-    }
-    const existingUnit = await Unit.findOne({
-      relations: ['org'],
-      where: {
-        id: req.params.unitId,
-        org: req.appOrg!.id,
-      },
-    });
-
+    const existingUnit = await req.appUserRole?.getUnit(parseInt(req.params.unitId));
     if (!existingUnit) {
       throw new NotFoundError('The unit could not be found.');
-    }
-
-    if (req.body.id && req.body.id !== existingUnit.id) {
-      throw new BadRequestError('Unable to change the ID of a unit.');
     }
 
     const rename = req.body.name && (req.body.name !== existingUnit.name);
@@ -115,18 +80,7 @@ class UnitController {
   }
 
   async deleteUnit(req: ApiRequest<OrgUnitParams>, res: Response) {
-    if (!matchWildcardString(req.params.unitId, req.appUserRole!.indexPrefix)) {
-      // If they don't have permission to see the unit, treat it as not found
-      throw new NotFoundError('The unit could not be found.');
-    }
-    const existingUnit = await Unit.findOne({
-      relations: ['org'],
-      where: {
-        id: req.params.unitId,
-        org: req.appOrg!.id,
-      },
-    });
-
+    const existingUnit = await req.appUserRole?.getUnit(parseInt(req.params.unitId));
     if (!existingUnit) {
       throw new NotFoundError('The unit could not be found.');
     }
@@ -169,9 +123,6 @@ function setUnitFromBody(unit: Unit, body: UnitData) {
   if (body.name) {
     unit.name = body.name;
   }
-  if (body.id) {
-    unit.id = body.id;
-  }
   if (body.musterConfiguration !== undefined) {
     unit.musterConfiguration = body.musterConfiguration;
   }
@@ -179,7 +130,6 @@ function setUnitFromBody(unit: Unit, body: UnitData) {
 
 
 export interface UnitData {
-  id?: string,
   name?: string,
   musterConfiguration?: MusterConfiguration[],
 }
