@@ -1,11 +1,9 @@
 import { expect } from 'chai';
-import { Like } from 'typeorm';
 import { expectNoErrors } from '../../util/test-utils/expect';
 import { seedOrgContactRoles } from '../../util/test-utils/seed';
 import { TestRequest } from '../../util/test-utils/test-request';
 import { Org } from '../org/org.model';
 import { Role } from '../role/role.model';
-import { Unit } from '../unit/unit.model';
 import { seedUnit } from '../unit/unit.model.mock';
 import { UserRole } from '../user/user-role.model';
 import { User } from '../user/user.model';
@@ -130,7 +128,8 @@ describe(`AccessRequest Controller`, () => {
       const body = {
         requestId: accessRequest.id,
         roleId: roleAdmin.id,
-        unitFilter: unit.id,
+        units: [unit.id],
+        allUnits: false,
       };
       const res = await req.post(`/${org.id}/approve`, body);
 
@@ -148,12 +147,7 @@ describe(`AccessRequest Controller`, () => {
       }))!;
       expect(userRole).to.exist;
 
-      const units = await Unit.find({
-        where: {
-          org,
-          id: Like(userRole.getUnitFilter()),
-        },
-      });
+      const units = await userRole.getUnits();
       expect(units).to.have.lengthOf(1);
       expect(units[0].id).to.equal(unit.id);
 

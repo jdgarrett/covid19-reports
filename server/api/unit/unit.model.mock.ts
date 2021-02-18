@@ -4,7 +4,6 @@ import { Unit } from './unit.model';
 
 export async function seedUnit(org: Org) {
   const unit = Unit.create({
-    id: uniqueString(),
     org,
     name: uniqueString(),
     musterConfiguration: [],

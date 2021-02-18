@@ -438,7 +438,7 @@ describe(`Roster Controller`, () => {
       // User who can only see the one unit.
       const user = await seedUser();
       const role = await seedRoleAdmin(org);
-      await addUserToOrg(user, role, unitToBeCleared.id);
+      await addUserToOrg(user, role, [unitToBeCleared], false);
 
       // Unit in same org, that should be untouched.
       const otherUnit = await seedUnit(org);

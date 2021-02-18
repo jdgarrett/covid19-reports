@@ -1,5 +1,4 @@
 import { expect } from 'chai';
-import { Like } from 'typeorm';
 import { expectNoErrors } from '../../util/test-utils/expect';
 import {
   seedOrgContactRoles,
@@ -14,7 +13,6 @@ import {
 import { seedAccessRequest } from '../access-request/access-request.mock';
 import { AccessRequest } from '../access-request/access-request.model';
 import { addUserToOrg } from '../org/org.model.mock';
-import { Unit } from '../unit/unit.model';
 import { seedUnit } from '../unit/unit.model.mock';
 import { User } from './user.model';
 import { seedUser } from './user.model.mock';
@@ -146,12 +144,7 @@ describe(`User Controller`, () => {
       expect(userAfter.firstName).to.equal(body.firstName);
       expect(userAfter.lastName).to.equal(body.lastName);
 
-      const units = await Unit.find({
-        where: {
-          org,
-          id: Like(userAfter.userRoles[0].getUnitFilter()),
-        },
-      });
+      const units = await userAfter.userRoles[0].getUnits();
       expect(units).to.have.lengthOf(1);
       expect(units[0].id).to.equal(unit.id);
 
