@@ -38,4 +38,5 @@ export interface MusterConfiguration {
   startTime: string,
   timezone: string,
   durationMinutes: number,
+  reportId: string,
 }

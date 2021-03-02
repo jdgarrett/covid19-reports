@@ -10,6 +10,7 @@ import accessRequestRoutes from './access-request';
 import workspaceRoutes from './workspace';
 import notificationRoutes from './notification';
 import musterRoutes from './muster';
+import reportRoutes from './report-schema';
 import exportRoutes from './export';
 import { User } from './user/user.model';
 import { Org } from './org/org.model';
@@ -27,6 +28,7 @@ router.use('/access-request', accessRequestRoutes);
 router.use('/workspace', workspaceRoutes);
 router.use('/notification', notificationRoutes);
 router.use('/muster', musterRoutes);
+router.use('/report', reportRoutes);
 router.use('/export', exportRoutes);
 router.use('/reingest', reingestRoutes);
 
@@ -48,6 +50,10 @@ export type OrgPrefixParam = {
 
 export type RoleParam = {
   roleId: string
+};
+
+export type ReportParam = {
+  reportId: string
 };
 
 export type EdipiParam = {
@@ -75,6 +81,7 @@ export type ColumnNameParam = {
 };
 
 export type OrgRoleParams = OrgParam & RoleParam;
+export type OrgReportParams = OrgParam & ReportParam;
 export type OrgEdipiParams = OrgParam & EdipiParam;
 export type OrgRosterParams = OrgParam & RosterParam;
 export type OrgWorkspaceParams = OrgParam & WorkspaceParam;

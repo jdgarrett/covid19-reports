@@ -8,6 +8,7 @@ import { Roster } from './api/roster/roster.model';
 import { User } from './api/user/user.model';
 import { Unit } from './api/unit/unit.model';
 import { Workspace } from './api/workspace/workspace.model';
+import { ReportSchema } from './api/report-schema/report-schema.model';
 import { WorkspaceTemplate } from './api/workspace/workspace-template.model';
 import { CustomRosterColumn } from './api/roster/custom-roster-column.model';
 import { Notification } from './api/notification/notification.model';
@@ -32,6 +33,7 @@ export const ormConfig: PostgresConnectionOptions = {
     AccessRequest,
     Unit,
     Workspace,
+    ReportSchema,
     WorkspaceTemplate,
     CustomRosterColumn,
     Notification,
