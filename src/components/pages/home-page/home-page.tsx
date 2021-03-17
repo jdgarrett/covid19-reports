@@ -39,6 +39,18 @@ export const HomePage = () => {
                       <Link href="mailto:covid19feedback@dds.mil" target="_blank">covid19feedback@dds.mil</Link>.
                     </Typography>
 
+                    <iframe
+                      title="kibana-embed"
+                      src="/dashboard/embed?orgId=1&dashboardUuid=1c7a8120-f446-11ea-82b7-4bc5055cc562"
+                      height="600"
+                      width="800"
+                    />
+                    <iframe
+                      title="kibana-embed"
+                      src="/dashboard/embed?orgId=1&visualizationUuid=e292ffd0-2863-11eb-aa43-cf97fefcff0e"
+                      height="600"
+                      width="800"
+                    />
                     <ul>
                       {user.activeRole?.role.canViewRoster && (
                         <li>

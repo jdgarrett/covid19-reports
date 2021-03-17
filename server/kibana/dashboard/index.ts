@@ -9,4 +9,9 @@ router.get(
   controller.login,
 );
 
+router.get(
+  '/embed',
+  controller.embed,
+);
+
 export default router;
